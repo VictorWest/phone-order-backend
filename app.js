@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises';
-
 import bodyParser from 'body-parser';
 import express from 'express';
-
+import mongoose from 'mongoose';
+import { Order } from './model/order.js';
 const app = express();
 
 app.use(bodyParser.json());
@@ -15,6 +15,11 @@ app.use((req, res, next) => {
   next();
 });
 
+//connect to mongoose
+mongoose.connect('mongodb+srv://victor_west:belemauniben123@cluster0.vr6umex.mongodb.net/?retryWrites=true&w=majority')
+.then(() => console.log('connected'))
+.catch((err) => console.log(err))
+
 app.get('/meals', async (req, res) => {
   const meals = await fs.readFile('./data/available-meals.json', 'utf8');
   res.json(JSON.parse(meals));
@@ -22,7 +27,6 @@ app.get('/meals', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   const orderData = req.body.orders; 
-  // console.log(orderData.customer.email);
 
   if (orderData === null || orderData.items === null || orderData.items == []) {
     return res
@@ -51,11 +55,25 @@ app.post('/orders', async (req, res) => {
     ...orderData,
     id: (Math.random() * 100).toString()
   }
-  const existingOrders = await fs.readFile('./data/orders.json', 'utf-8')
-  const updatedOrders = JSON.parse(existingOrders)
-  updatedOrders.push(order)
-  await fs.writeFile('./data/orders.json', JSON.stringify(updatedOrders))
-  res.status(201).json({message: 'Order created!'})
+  // const existingOrders = await fs.readFile('./data/orders.json', 'utf-8')
+  // const updatedOrders = JSON.parse(existingOrders)
+  // updatedOrders.push(order)
+  // await fs.writeFile('./data/orders.json', JSON.stringify(updatedOrders))
+  const newOrder = new Order({
+    name: order.customer.name,
+    email: order.customer.email,
+    street: order.customer.street,
+    postalCode: order.customer['postal-code'],
+    city: order.customer.city,
+    id: order.id
+  })
+  newOrder.save()
+    .then(() => {
+      res.status(201).json({message: 'Order created!'})
+    })
+    .catch((err) => {
+      res.status(401).json({message: err})
+    })
 });
 
 app.use((req, res) => {
@@ -69,13 +87,3 @@ app.use((req, res) => {
 app.listen(3000, () => {
   console.log("listening on port 3000");
 });
-
-// const newOrder = {
-//   ...orderData,
-//   id: (Math.random() * 1000).toString(),
-// };
-// const orders = await fs.readFile('./data/orders.json', 'utf8');
-// const allOrders = JSON.parse(orders);
-// allOrders.push(newOrder);
-// await fs.writeFile('./data/orders.json', JSON.stringify(allOrders));
-// res.status(201).json({ message: 'Order created!' });
